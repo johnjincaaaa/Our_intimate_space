@@ -1,0 +1,201 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+简单的文件上传服务器
+支持图片、视频、音乐文件的上传
+"""
+
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
+import os
+import uuid
+from datetime import datetime
+import json
+
+app = Flask(__name__)
+CORS(app)  # 允许跨域请求
+
+# 配置
+UPLOAD_FOLDER = {
+    'images': 'images',
+    'videos': 'videos',
+    'music': 'music'
+}
+ALLOWED_EXTENSIONS = {
+    'images': {'jpg', 'jpeg', 'png', 'gif', 'webp'},
+    'videos': {'mp4', 'avi', 'mov', 'wmv', 'flv'},
+    'music': {'mp3', 'm4a', 'wav', 'ogg', 'flac'}
+}
+MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB
+
+# 数据文件路径
+DATA_FILE = 'uploaded_files.json'
+
+def load_data():
+    """加载已上传文件的数据"""
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return {'images': [], 'videos': [], 'music': []}
+
+def save_data(data):
+    """保存已上传文件的数据"""
+    with open(DATA_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def allowed_file(filename, file_type):
+    """检查文件扩展名是否允许"""
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS[file_type]
+
+@app.route('/api/upload', methods=['POST'])
+def upload_file():
+    """上传文件接口"""
+    try:
+        # 检查文件类型
+        file_type = request.form.get('type')  # 'image', 'video', 'music'
+        if file_type not in ['image', 'video', 'music']:
+            return jsonify({'error': '无效的文件类型'}), 400
+        
+        # 检查文件是否存在
+        if 'file' not in request.files:
+            return jsonify({'error': '没有文件'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': '文件名为空'}), 400
+        
+        # 检查文件扩展名
+        if not allowed_file(file.filename, file_type + 's'):
+            return jsonify({'error': '不支持的文件格式'}), 400
+        
+        # 检查文件大小
+        file.seek(0, os.SEEK_END)
+        file_size = file.tell()
+        file.seek(0)
+        if file_size > MAX_FILE_SIZE:
+            return jsonify({'error': f'文件太大，最大允许{MAX_FILE_SIZE // 1024 // 1024}MB'}), 400
+        
+        # 获取留言
+        message = request.form.get('message', '').strip()
+        if file_type in ['image', 'video'] and not message:
+            return jsonify({'error': '请输入留言'}), 400
+        
+        # 生成唯一文件名
+        ext = file.filename.rsplit('.', 1)[1].lower()
+        unique_filename = f"{uuid.uuid4().hex}.{ext}"
+        upload_folder = UPLOAD_FOLDER[file_type + 's']
+        
+        # 确保目录存在
+        os.makedirs(upload_folder, exist_ok=True)
+        
+        # 保存文件
+        file_path = os.path.join(upload_folder, unique_filename)
+        file.save(file_path)
+        
+        # 保存文件信息
+        data = load_data()
+        file_info = {
+            'id': str(uuid.uuid4()),
+            'filename': unique_filename,
+            'original_name': file.filename,
+            'path': file_path,
+            'url': f'/{file_path}',
+            'message': message or file.filename,
+            'upload_time': datetime.now().isoformat(),
+            'size': file_size
+        }
+        data[file_type + 's'].append(file_info)
+        save_data(data)
+        
+        return jsonify({
+            'success': True,
+            'message': '上传成功',
+            'file': file_info
+        }), 200
+
+    except Exception as e:
+        # 收集关键调试信息
+        error_info = {
+            'error': '上传失败',
+            'exception_type': type(e).__name__,  # 异常类型（如 FileNotFoundError、PermissionError）
+            'exception_msg': str(e),  # 异常原始信息
+            'request_method': request.method,  # 请求方法（POST/GET）
+            'request_url': request.url,  # 请求 URL
+            'client_ip': request.remote_addr,  # 客户端 IP
+            'uploaded_filename': request.files['file'].filename if 'file' in request.files else '无',  # 上传文件名（若有）
+            'uploaded_file_size': request.content_length if request.content_length else 0,  # 上传文件大小（字节）
+            'traceback': traceback.format_exc().split('\n')  # 详细堆栈信息（拆分分行，便于查看）
+        }
+        # 返回 JSON 格式的错误信息，HTTP 状态码 500
+        # return jsonify(error_info), 500
+
+        return jsonify({'error': f'上传失败: {str(e)}'},error_info), 500
+
+@app.route('/api/files', methods=['GET'])
+def get_files():
+    """获取所有已上传文件列表"""
+    try:
+        data = load_data()
+        return jsonify(data), 200
+    except Exception as e:
+        return jsonify({'error': f'获取文件列表失败: {str(e)}'}), 500
+
+@app.route('/api/files/<file_type>', methods=['GET'])
+def get_files_by_type(file_type):
+    """根据类型获取文件列表"""
+    try:
+        if file_type not in ['images', 'videos', 'music']:
+            return jsonify({'error': '无效的文件类型'}), 400
+        
+        data = load_data()
+        return jsonify(data.get(file_type, [])), 200
+    except Exception as e:
+        return jsonify({'error': f'获取文件列表失败: {str(e)}'}), 500
+
+# Flask默认会提供static文件夹的静态文件
+# 我们需要提供images、videos、music文件夹的访问
+@app.route('/images/<path:filename>')
+def serve_image(filename):
+    """提供图片文件服务"""
+    return send_from_directory('images', filename)
+
+@app.route('/videos/<path:filename>')
+def serve_video(filename):
+    """提供视频文件服务"""
+    return send_from_directory('videos', filename)
+
+@app.route('/music/<path:filename>')
+def serve_music(filename):
+    """提供音乐文件服务"""
+    return send_from_directory('music', filename)
+
+@app.route('/css/<path:filename>')
+def serve_css(filename):
+    """提供CSS文件服务"""
+    return send_from_directory('css', filename)
+
+@app.route('/js/<path:filename>')
+def serve_js(filename):
+    """提供JS文件服务"""
+    return send_from_directory('js', filename)
+
+@app.route('/')
+def index():
+    """提供主页"""
+    return send_from_directory('.', 'index.html')
+
+if __name__ == '__main__':
+    # 确保数据文件存在
+    if not os.path.exists(DATA_FILE):
+        save_data({'images': [], 'videos': [], 'music': []})
+    
+    print('服务器启动中...')
+    print('访问 http://localhost:5001 查看网站')
+    print('API接口:')
+    print('  POST /api/upload - 上传文件')
+    print('  GET  /api/files - 获取所有文件')
+    print('  GET  /api/files/<type> - 获取指定类型文件')
+    
+    app.run(host='0.0.0.0', port=5001, debug=True)
+
