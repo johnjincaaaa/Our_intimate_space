@@ -22,6 +22,17 @@
     <button id="themeToggle" class="btn">切换模式 🌙</button>
 </div>
 
+<!-- 头像展示 -->
+<div id="avatarContainer">
+    <div class="avatar-wrapper">
+        <img src="images/你的头像.jpg" alt="你的头像" class="avatar">
+    </div>
+    <div class="heart-connector">❤️</div>
+    <div class="avatar-wrapper">
+        <img src="images/我的头像.png" alt="我的头像" class="avatar">
+    </div>
+</div>
+
 <!-- 相恋计时器 -->
 <div id="loveTimer">
     我们相恋已经
@@ -33,14 +44,20 @@
 <div id="videoGallery">
     <div id="videoGalleryTitle">共创回忆</div>
     <div id="videoContainer"></div>
-    <button id="closeVideoBtn" class="btn">关闭视频集</button>
+    <div class="gallery-actions">
+        <button id="addVideoBtn" class="btn add-btn">➕ 添加视频</button>
+        <button id="closeVideoBtn" class="btn">关闭视频集</button>
+    </div>
 </div>
 
 <!-- 图片画廊 -->
 <div id="imageGallery">
     <div id="galleryTitle">我们的瞬间</div>
     <div id="galleryContainer"></div>
-    <button id="closeGalleryBtn" class="btn">关闭照片集</button>
+    <div class="gallery-actions">
+        <button id="addImageBtn" class="btn add-btn">➕ 添加图片</button>
+        <button id="closeGalleryBtn" class="btn">关闭照片集</button>
+    </div>
 </div>
 
 <!-- 图片放大层 -->
@@ -56,6 +73,7 @@
 <div id="musicSection">
     <button id="musicBtn" class="btn">歌单 🎵</button>
     <div id="musicList"></div>
+    <button id="addMusicBtn" class="btn add-btn" style="margin-top: 10px; width: 100%;">➕ 添加音乐</button>
 </div>
 
 <div id="audioControl">
@@ -63,6 +81,34 @@
     <button class="btn" id="playPauseBtn">暂停</button>
     <div id="currentMusicName">未播放歌曲</div>
     <button class="btn" id="nextBtn">下一首</button>
+</div>
+
+<!-- 上传对话框 -->
+<div id="uploadModal" class="upload-modal">
+    <div class="upload-modal-content">
+        <div class="upload-modal-header">
+            <h3 id="uploadModalTitle">上传文件</h3>
+            <button id="closeUploadModal" class="btn-close">×</button>
+        </div>
+        <div class="upload-modal-body">
+            <div class="upload-form-group">
+                <label for="fileInput">选择文件：</label>
+                <input type="file" id="fileInput" accept="">
+            </div>
+            <div class="upload-form-group" id="messageGroup" style="display: none;">
+                <label for="messageInput">留言（作为标题）：</label>
+                <input type="text" id="messageInput" placeholder="输入留言...">
+            </div>
+            <div class="upload-preview" id="uploadPreview"></div>
+            <div class="upload-progress" id="uploadProgress" style="display: none;">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText">0%</div>
+            </div>
+            <button id="confirmUpload" class="btn" style="width: 100%; margin-top: 15px;">确认上传</button>
+        </div>
+    </div>
 </div>
 
 <!-- 特效容器 -->

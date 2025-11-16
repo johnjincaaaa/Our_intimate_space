@@ -16,6 +16,15 @@
     --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* 亮色模式变量 */
+:root:not(.dark) {
+    --bg-dark: #f5f5f5;
+    --bg-light: rgba(0, 0, 0, 0.05);
+    --text-white: #333333;
+    --text-gray: rgba(0, 0, 0, 0.7);
+    --shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+}
+
 body {
     width: 100vw;
     height: 100vh;
@@ -26,35 +35,126 @@ body {
     transition: background-color var(--transition);
 }
 
+/* 头像展示容器 */
+#avatarContainer {
+    position: fixed;
+    top: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 10px 20px;
+    background-color: rgba(30, 30, 30, 0.7);
+    border-radius: 50px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
+    transition: var(--transition);
+}
+
+:root:not(.dark) #avatarContainer {
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+#avatarContainer:hover {
+    transform: translateX(-50%) translateY(-3px);
+    box-shadow: 0 0 25px rgba(255, 107, 139, 0.4);
+}
+
+.avatar-wrapper {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 3px solid var(--primary);
+    box-shadow: 0 0 15px rgba(255, 107, 139, 0.5);
+    transition: var(--transition);
+    position: relative;
+}
+
+.avatar-wrapper:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 20px rgba(255, 107, 139, 0.8);
+}
+
+.avatar {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.heart-connector {
+    font-size: 28px;
+    animation: heartPulse 1.5s ease-in-out infinite;
+    filter: drop-shadow(0 0 8px rgba(255, 107, 139, 0.6));
+}
+
+@keyframes heartPulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.2);
+    }
+}
+
 /* 相恋计时器 */
 #loveTimer {
     position: fixed;
     top: 20px;
     left: 20px;
     z-index: 100;
-    background-color: rgba(30, 30, 30, 0.9);
+    background-color: rgba(30, 30, 30, 0.7);
     color: var(--text-white);
-    padding: 12px 20px;
+    padding: 8px 12px;
     border-radius: 10px;
-    font-size: 16px;
+    font-size: 14px;
     box-shadow: var(--shadow);
     text-align: center;
     transition: var(--transition);
     backdrop-filter: blur(5px);
 }
 
+/* 亮色模式下的计时器 */
+:root:not(.dark) #loveTimer {
+    background-color: rgba(255, 255, 255, 0.95);
+    color: #333333;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
 #loveTimer:hover {
     transform: translateY(-3px);
     box-shadow: 0 0 20px rgba(255, 204, 213, 0.3);
+    padding: 12px 20px;
+    font-size: 16px;
+    background-color: rgba(30, 30, 30, 0.9);
+}
+
+:root:not(.dark) #loveTimer:hover {
+    background-color: rgba(255, 255, 255, 1);
+    box-shadow: 0 0 20px rgba(255, 107, 139, 0.3);
 }
 
 #timerValue {
     font-size: 18px;
     font-weight: bold;
-    margin-top: 5px;
     color: var(--primary-light);
     text-shadow: 0 0 8px rgba(255, 204, 213, 0.6);
-    letter-spacing: 0.5px;
+    letter-spacing: 1px;
+    display: none;
+}
+
+:root:not(.dark) #timerValue {
+    color: #ff6b8b;
+    text-shadow: 0 0 8px rgba(255, 107, 139, 0.4);
+}
+
+#loveTimer:hover #timerValue {
+    display: block;
+    margin-top: 5px;
 }
 
 /* 按钮样式 */
@@ -71,6 +171,15 @@ body {
     backdrop-filter: blur(5px);
     background-color: var(--bg-light);
     color: var(--text-white);
+    opacity: 1;
+}
+
+/* 亮色模式下的按钮 */
+:root:not(.dark) .btn {
+    background-color: rgba(255, 255, 255, 0.9);
+    color: #333333;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .btn:hover {
@@ -79,14 +188,29 @@ body {
     box-shadow: 0 4px 12px rgba(255, 204, 213, 0.2);
 }
 
-/* 视频按钮与画廊 */
-#videoBtn {
+:root:not(.dark) .btn:hover {
+    background-color: rgba(255, 107, 139, 0.1);
+    color: #ff6b8b;
+    box-shadow: 0 4px 12px rgba(255, 107, 139, 0.2);
+    border-color: rgba(255, 107, 139, 0.3);
+}
+
+/* 右上角按钮组 */
+#rightControls {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
     position: fixed;
-    top: 20px;
-    right: 20px;
+    top: 40px;
+    right: 40px;
     z-index: 100;
 }
 
+#videoBtn, #imageBtn {
+    position: static; /* 取消固定定位，使用父容器定位 */
+}
+
+/* 视频按钮与画廊 */
 #videoGallery {
     position: fixed;
     top: 50%;
@@ -98,7 +222,7 @@ body {
     max-height: 80vh;
     background-color: rgba(15, 15, 15, 0.95);
     border-radius: 12px;
-    padding: 20px;
+    padding: 30px;
     display: none;
     flex-direction: column;
     gap: 15px;
@@ -106,6 +230,13 @@ body {
     backdrop-filter: blur(10px);
     opacity: 0;
     transition: var(--transition);
+    color: var(--text-white);
+}
+
+:root:not(.dark) #videoGallery {
+    background-color: rgba(255, 255, 255, 0.98);
+    color: #333333;
+    border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 #videoGallery.active {
@@ -119,7 +250,7 @@ body {
     overflow-y: auto;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 15px;
+    gap: 20px;
     padding: 5px 0;
 }
 
@@ -130,6 +261,24 @@ body {
     cursor: pointer;
     transition: var(--transition);
     position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+:root:not(.dark) .videoItem {
+    background-color: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.videoTitle {
+    color: var(--text-white);
+    padding: 8px;
+    text-align: center;
+    font-size: 14px;
+}
+
+:root:not(.dark) .videoTitle {
+    color: #333333;
 }
 
 .videoThumbnail {
@@ -155,13 +304,6 @@ body {
 }
 
 /* 图片画廊 */
-#imageBtn {
-    position: fixed;
-    top: 80px;
-    right: 20px;
-    z-index: 100;
-}
-
 #imageGallery {
     position: fixed;
     top: 50%;
@@ -173,7 +315,7 @@ body {
     max-height: 80vh;
     background-color: rgba(15, 15, 15, 0.95);
     border-radius: 12px;
-    padding: 20px;
+    padding: 30px;
     display: none;
     flex-direction: column;
     gap: 15px;
@@ -181,6 +323,13 @@ body {
     backdrop-filter: blur(10px);
     opacity: 0;
     transition: var(--transition);
+    color: var(--text-white);
+}
+
+:root:not(.dark) #imageGallery {
+    background-color: rgba(255, 255, 255, 0.98);
+    color: #333333;
+    border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 #imageGallery.active {
@@ -194,7 +343,7 @@ body {
     overflow-y: auto;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 15px;
+    gap: 20px;
     padding: 5px 0;
 }
 
@@ -214,6 +363,38 @@ body {
     border-color: rgba(255, 204, 213, 0.5);
 }
 
+:root:not(.dark) .galleryImage:hover {
+    box-shadow: 0 0 15px rgba(255, 107, 139, 0.4);
+    border-color: rgba(255, 107, 139, 0.5);
+}
+
+#videoGalleryTitle, #galleryTitle {
+    font-size: 24px;
+    font-weight: bold;
+    color: var(--text-white);
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+:root:not(.dark) #videoGalleryTitle,
+:root:not(.dark) #galleryTitle {
+    color: #333333;
+}
+
+#imageCaption {
+    color: var(--text-white);
+    font-size: 16px;
+    text-align: center;
+    padding: 10px;
+    background-color: rgba(0, 0, 0, 0.5);
+    border-radius: 8px;
+}
+
+:root:not(.dark) #imageCaption {
+    color: #333333;
+    background-color: rgba(255, 255, 255, 0.9);
+}
+
 /* 图片放大层 */
 #imageZoomLayer {
     position: fixed;
@@ -231,6 +412,10 @@ body {
     gap: 20px;
     opacity: 0;
     transition: opacity 0.3s ease;
+}
+
+:root:not(.dark) #imageZoomLayer {
+    background-color: rgba(255, 255, 255, 0.98);
 }
 
 #imageZoomLayer.active {
@@ -270,17 +455,33 @@ body {
     animation: slideUp 0.3s ease forwards;
 }
 
+:root:not(.dark) #musicList {
+    background-color: rgba(255, 255, 255, 0.95);
+    color: #333333;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
 .musicItem {
     padding: 8px 10px;
     border-radius: 5px;
     margin-bottom: 8px;
     cursor: pointer;
     transition: var(--transition);
+    color: var(--text-white);
+}
+
+:root:not(.dark) .musicItem {
+    color: #333333;
 }
 
 .musicItem:hover {
     background-color: rgba(255, 255, 255, 0.2);
     transform: translateX(3px);
+}
+
+:root:not(.dark) .musicItem:hover {
+    background-color: rgba(255, 107, 139, 0.1);
+    color: #ff6b8b;
 }
 
 #audioControl {
@@ -297,6 +498,21 @@ body {
     gap: 20px;
     box-shadow: var(--shadow);
     backdrop-filter: blur(5px);
+    color: var(--text-white);
+}
+
+:root:not(.dark) #audioControl {
+    background-color: rgba(255, 255, 255, 0.95);
+    color: #333333;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+#currentMusicName {
+    color: var(--text-white);
+}
+
+:root:not(.dark) #currentMusicName {
+    color: #333333;
 }
 
 /* 粒子与弹幕 */
@@ -312,7 +528,7 @@ body {
 .particle {
     position: absolute;
     border-radius: 50%;
-    opacity: 0;
+    opacity: 0.5; /* 原0.8 → 0.5 */
     transition: opacity 0.5s ease;
 }
 
@@ -330,9 +546,21 @@ body {
     white-space: nowrap;
     text-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
     pointer-events: none;
-    opacity: 0;
+    opacity: 0.7; /* 原1.0 → 0.7 */
     transform: translateX(20px);
     animation: fadeIn 0.5s forwards;
+}
+
+/* 亮色模式下的弹幕 */
+:root:not(.dark) .danmu {
+    text-shadow: 0 0 8px rgba(0, 0, 0, 0.8), 0 2px 4px rgba(0, 0, 0, 0.5);
+    opacity: 0.9;
+    font-weight: 500;
+}
+
+/* 视频播放层 */
+#videoOverlay {
+    z-index: 170; /* 高于按钮容器，确保全屏播放时在最上层 */
 }
 
 /* 加载动画 */
@@ -382,6 +610,211 @@ body {
     100% { transform: scale(0.8); }
 }
 
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+/* 上传对话框 */
+.upload-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(5px);
+}
+
+.upload-modal.active {
+    display: flex;
+}
+
+.upload-modal-content {
+    background-color: rgba(30, 30, 30, 0.95);
+    border-radius: 15px;
+    padding: 30px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    color: var(--text-white);
+}
+
+:root:not(.dark) .upload-modal-content {
+    background-color: rgba(255, 255, 255, 0.98);
+    color: #333333;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.upload-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+:root:not(.dark) .upload-modal-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.upload-modal-header h3 {
+    margin: 0;
+    color: var(--text-white);
+}
+
+:root:not(.dark) .upload-modal-header h3 {
+    color: #333333;
+}
+
+.btn-close {
+    background: none;
+    border: none;
+    font-size: 28px;
+    color: var(--text-white);
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: var(--transition);
+}
+
+.btn-close:hover {
+    background-color: rgba(255, 107, 139, 0.2);
+    transform: rotate(90deg);
+}
+
+.upload-form-group {
+    margin-bottom: 20px;
+}
+
+.upload-form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--text-white);
+    font-weight: 500;
+}
+
+:root:not(.dark) .upload-form-group label {
+    color: #333333;
+}
+
+.upload-form-group input[type="file"],
+.upload-form-group input[type="text"] {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-white);
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+:root:not(.dark) .upload-form-group input[type="file"],
+:root:not(.dark) .upload-form-group input[type="text"] {
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    background-color: rgba(255, 255, 255, 0.9);
+    color: #333333;
+}
+
+.upload-form-group input[type="file"]:focus,
+.upload-form-group input[type="text"]:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 10px rgba(255, 107, 139, 0.3);
+}
+
+.upload-preview {
+    margin-top: 20px;
+    min-height: 100px;
+    border: 2px dashed rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    padding: 15px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+:root:not(.dark) .upload-preview {
+    border-color: rgba(0, 0, 0, 0.2);
+}
+
+.upload-preview img {
+    max-width: 100%;
+    max-height: 200px;
+    border-radius: 8px;
+}
+
+.upload-preview video {
+    max-width: 100%;
+    max-height: 200px;
+    border-radius: 8px;
+}
+
+.upload-progress {
+    margin-top: 15px;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+:root:not(.dark) .progress-bar {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: var(--primary);
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-white);
+}
+
+:root:not(.dark) .progress-text {
+    color: #333333;
+}
+
+.gallery-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+    justify-content: center;
+}
+
+.add-btn {
+    background-color: var(--primary);
+    color: white;
+}
+
+.add-btn:hover {
+    background-color: #ff5a7a;
+    transform: translateY(-2px);
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
     #imageGallery, #videoGallery {
@@ -402,58 +835,19 @@ body {
         padding: 8px 12px;
         font-size: 14px;
     }
-}
 
-.danmu {
-  opacity: 0.7; /* 原1.0 → 0.7 */
-}
-.particle {
-  opacity: 0.5; /* 原0.8 → 0.5 */
-}
+    #avatarContainer {
+        top: 20px;
+        gap: 15px;
+        padding: 8px 15px;
+    }
 
-.btn:hover {
-  opacity: 1;
-}
+    .avatar-wrapper {
+        width: 50px;
+        height: 50px;
+    }
 
-/* 右上角按钮组折叠 */
-#rightControls {
-  display: flex;
-  flex-direction: column;
-  gap: 15px; /* 增加按钮之间的垂直间距 */
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 100;
-}
-
-#loveTimer {
-  padding: 8px 12px;
-  font-size: 14px;
-  background-color: rgba(30, 30, 30, 0.7);
-}
-#loveTimer:hover {
-  padding: 12px 20px;
-  font-size: 16px;
-  background-color: rgba(30, 30, 30, 0.9);
-}
-#timerValue {
-  display: none;
-}
-#loveTimer:hover #timerValue {
-  display: block;
-  margin-top: 5px;
-}
-
-#imageGallery, #videoGallery {
-  padding: 30px;
-}
-#galleryContainer, #videoContainer {
-  gap: 20px;
-}
-.btn {
-  animation: pulse 4s infinite;
-}
-@keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
+    .heart-connector {
+        font-size: 24px;
+    }
 }

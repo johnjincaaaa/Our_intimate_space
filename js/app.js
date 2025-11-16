@@ -6,6 +6,9 @@ let particles = [];
 let danmuAnimationIds = [];
 let particleAnimationIds = [];
 let currentSlide = 0;
+let uploadType = ''; // 'video', 'image', 'music'
+// 服务器API地址 - 如果使用HTTPS，请确保API也使用HTTPS
+const API_BASE_URL =  'http://localhost:5001/api';
 
 // 数据定义
 const imageList = [
@@ -26,13 +29,13 @@ const imageList = [
 const videoList = [
     {
         url: "videos/10月1日.mp4",
-        title: "9月",
-        thumbnail: "images/v_1.jpg" // 视频封面图
+        title: "问题小楠",
+        thumbnail: "images/v_2.png" // 视频封面图
     },
     {
-        url: "https://www.douyin.com/user/self?modal_id=7556200561423486247",
-        title: "问题小楠",
-        thumbnail: "pictures/v_2.png" // 视频封面图
+        url: "videos/1.mp4",
+        title: "9月",
+        thumbnail: "images/v_1.jpg" // 视频封面图
     }
     // 继续添加格式：
     // { url: "视频链接", title: "视频标题", thumbnail: "封面图链接" },
@@ -75,11 +78,18 @@ window.addEventListener('load', () => {
     initLoveTimer();
     initDanmuSystem();
     createParticles();
-    renderMusicList();
-    initImageGallery();
-    initVideoGallery();
     initThemeToggle();
     preloadImages();
+    
+    // 初始化上传系统
+    initUploadSystem();
+    
+    // 从服务器加载文件
+    loadFilesFromServer().then(() => {
+        renderMusicList();
+        initImageGallery();
+        initVideoGallery();
+    });
 });
 
 // 相恋计时器
@@ -293,11 +303,11 @@ function initVideoGallery() {
         const videoItem = document.createElement('div');
         videoItem.className = 'videoItem';
         videoItem.innerHTML = `
+            <div class="videoTitle">${video.title}</div>
             <div class="videoThumbnail">
                 <img src="${video.thumbnail}" alt="${video.title}" class="w-full h-full object-cover">
                 <div class="videoPlayIcon"></div>
             </div>
-            <div class="videoTitle">${video.title}</div>
         `;
         videoItem.addEventListener('click', () => {
             const videoPlayer = document.getElementById('videoPlayer');
@@ -355,19 +365,125 @@ function renderMusicList() {
     });
 
     // 播放音乐
+    let endedHandler = null;
+    let errorHandler = null;
+    
     function playMusic(index) {
         if (currentAudio) {
             currentAudio.pause();
+            if (endedHandler) {
+                currentAudio.removeEventListener('ended', endedHandler);
+            }
+            if (errorHandler) {
+                currentAudio.removeEventListener('error', errorHandler);
+            }
+            currentAudio = null;
         }
 
         currentMusicIndex = index;
         const music = musicFiles[index];
-        currentAudio = new Audio(music.path);
-        currentAudio.play();
+        
+        // 使用原始路径（相对于 HTML 文件）
+        const audioPath = music.path;
+        
+        // 先检查文件是否存在
+        fetch(audioPath, { method: 'HEAD' })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`文件不存在 (${response.status})`);
+                }
+                return response;
+            })
+            .then(() => {
+                // 文件存在，创建音频对象
+                currentAudio = new Audio(audioPath);
+                
+                // 设置音频属性
+                currentAudio.volume = 1.0; // 确保音量是100%
+                currentAudio.preload = 'auto';
+                
+                // 监听音频可以播放事件
+                currentAudio.addEventListener('canplay', () => {
+                    console.log('音频已加载，可以播放:', music.name);
+                });
+                
+                // 监听音乐结束事件
+                endedHandler = () => {
+                    currentMusicIndex = (currentMusicIndex + 1) % musicFiles.length;
+                    playMusic(currentMusicIndex);
+                };
+                currentAudio.addEventListener('ended', endedHandler);
+                
+                // 监听错误事件（更详细的错误信息）
+                errorHandler = (e) => {
+                    console.error('音频播放错误:', e);
+                    console.error('音频路径:', audioPath);
+                    console.error('音频对象状态:', {
+                        networkState: currentAudio.networkState,
+                        readyState: currentAudio.readyState,
+                        error: currentAudio.error
+                    });
+                    
+                    let errorMsg = '播放失败：';
+                    if (currentAudio.error) {
+                        switch(currentAudio.error.code) {
+                            case MediaError.MEDIA_ERR_ABORTED:
+                                errorMsg += '用户中止播放';
+                                break;
+                            case MediaError.MEDIA_ERR_NETWORK:
+                                errorMsg += '网络错误，请检查文件路径: ' + audioPath;
+                                break;
+                            case MediaError.MEDIA_ERR_DECODE:
+                                errorMsg += '音频解码错误，文件可能已损坏';
+                                break;
+                            case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                                errorMsg += '音频格式不支持或文件不存在: ' + audioPath;
+                                break;
+                            default:
+                                errorMsg += '未知错误';
+                        }
+                    } else {
+                        errorMsg += '请检查音频文件是否存在: ' + audioPath;
+                    }
+                    alert(errorMsg);
+                    playPauseBtn.textContent = '播放';
+                };
+                currentAudio.addEventListener('error', errorHandler);
+                
+                // 等待音频可以播放后再尝试播放
+                const tryPlay = () => {
+                    if (currentAudio.readyState >= 2) { // HAVE_CURRENT_DATA
+                        const playPromise = currentAudio.play();
+                        if (playPromise !== undefined) {
+                            playPromise.then(() => {
+                                console.log('音乐开始播放:', music.name);
+                                playPauseBtn.textContent = '暂停';
+                            }).catch(error => {
+                                console.error('播放失败:', error);
+                                console.log('这可能是浏览器自动播放策略限制，请手动点击播放按钮');
+                                playPauseBtn.textContent = '播放';
+                            });
+                        }
+                    } else {
+                        // 如果还没准备好，等待 canplay 事件
+                        currentAudio.addEventListener('canplay', tryPlay, { once: true });
+                    }
+                };
+                
+                // 开始加载
+                currentAudio.load();
+                
+                // 尝试播放
+                tryPlay();
+            })
+            .catch(error => {
+                console.error('文件检查失败:', error);
+                alert('无法找到音频文件: ' + audioPath + '\n请检查文件路径是否正确');
+                playPauseBtn.textContent = '播放';
+            });
 
         // 更新UI
         currentMusicName.textContent = music.name;
-        playPauseBtn.textContent = '暂停';
         audioControl.style.display = 'flex';
         updateActiveMusicItem();
     }
@@ -389,11 +505,40 @@ function renderMusicList() {
     });
 
     playPauseBtn.addEventListener('click', () => {
-        if (!currentAudio) return;
+        if (!currentAudio) {
+            // 如果没有音频对象，尝试播放当前选中的音乐
+            if (musicFiles.length > 0) {
+                playMusic(currentMusicIndex);
+            }
+            return;
+        }
 
         if (currentAudio.paused) {
-            currentAudio.play();
-            playPauseBtn.textContent = '暂停';
+            // 如果音频还没准备好，等待加载
+            if (currentAudio.readyState < 2) {
+                currentAudio.addEventListener('canplay', () => {
+                    const playPromise = currentAudio.play();
+                    if (playPromise !== undefined) {
+                        playPromise.then(() => {
+                            playPauseBtn.textContent = '暂停';
+                        }).catch(error => {
+                            console.error('播放失败:', error);
+                            alert('播放失败，请检查音频文件');
+                        });
+                    }
+                }, { once: true });
+                currentAudio.load();
+            } else {
+                const playPromise = currentAudio.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        playPauseBtn.textContent = '暂停';
+                    }).catch(error => {
+                        console.error('播放失败:', error);
+                        alert('播放失败，请检查音频文件');
+                    });
+                }
+            }
         } else {
             currentAudio.pause();
             playPauseBtn.textContent = '播放';
@@ -410,13 +555,7 @@ function renderMusicList() {
         playMusic(currentMusicIndex);
     });
 
-    // 音乐结束自动播放下一首
-    document.addEventListener('ended', (e) => {
-        if (e.target === currentAudio) {
-            currentMusicIndex = (currentMusicIndex + 1) % musicFiles.length;
-            playMusic(currentMusicIndex);
-        }
-    }, true);
+    // 音乐结束自动播放下一首（已在playMusic函数中处理）
 }
 
 // 弹幕系统
@@ -445,7 +584,17 @@ function initDanmuSystem() {
         danmu.textContent = danmuTexts[Math.floor(Math.random() * danmuTexts.length)];
         danmu.style.top = `${Math.random() * 85 + 5}%`;
         danmu.style.fontSize = `${Math.random() * 10 + 14}px`;
-        const colors = ['#fff', '#ffccd5', '#cce5ff', '#e6ffcc', '#ffecce', '#ffcceb'];
+        
+        // 根据主题选择颜色
+        const isDark = document.documentElement.classList.contains('dark');
+        let colors;
+        if (isDark) {
+            // 暗色模式：使用浅色
+            colors = ['#fff', '#ffccd5', '#cce5ff', '#e6ffcc', '#ffecce', '#ffcceb'];
+        } else {
+            // 亮色模式：使用深色
+            colors = ['#333', '#d32f2f', '#1976d2', '#388e3c', '#f57c00', '#7b1fa2', '#c2185b', '#0288d1'];
+        }
         danmu.style.color = colors[Math.floor(Math.random() * colors.length)];
     }
 
@@ -495,7 +644,17 @@ function createParticles() {
         particle.style.height = `${size}px`;
         particle.style.left = `${Math.random() * 100}%`;
         particle.style.bottom = `-${size}px`;
-        const colors = ['#fff', '#ffccd5', '#cce5ff', '#e6ffcc', '#ffecce'];
+        
+        // 根据主题选择颜色
+        const isDark = document.documentElement.classList.contains('dark');
+        let colors;
+        if (isDark) {
+            // 暗色模式：使用浅色
+            colors = ['#fff', '#ffccd5', '#cce5ff', '#e6ffcc', '#ffecce'];
+        } else {
+            // 亮色模式：使用深色
+            colors = ['#333', '#d32f2f', '#1976d2', '#388e3c', '#f57c00', '#7b1fa2', '#c2185b', '#0288d1'];
+        }
         particle.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
         particle.style.opacity = `${Math.random() * 0.6 + 0.3}`;
 
@@ -512,6 +671,16 @@ function animateParticle(particle, size) {
     particle.style.left = `${Math.random() * 100}%`;
     particle.style.bottom = `-${size}px`;
     particle.style.opacity = `${Math.random() * 0.6 + 0.3}`;
+    
+    // 根据主题更新颜色（在重新动画时）
+    const isDark = document.documentElement.classList.contains('dark');
+    let colors;
+    if (isDark) {
+        colors = ['#fff', '#ffccd5', '#cce5ff', '#e6ffcc', '#ffecce'];
+    } else {
+        colors = ['#333', '#d32f2f', '#1976d2', '#388e3c', '#f57c00', '#7b1fa2', '#c2185b', '#0288d1'];
+    }
+    particle.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
 
     const duration = Math.random() * 5 + 3;
     const startTime = performance.now();
@@ -569,6 +738,31 @@ function initThemeToggle() {
             document.getElementById('loveTimer').style.backgroundColor = 'rgba(30,30,30,0.9)';
             document.getElementById('loveTimer').style.color = '#fff';
         }
+        
+        // 更新所有现有弹幕的颜色
+        const danmus = document.querySelectorAll('.danmu');
+        danmus.forEach(danmu => {
+            const isDark = html.classList.contains('dark');
+            let colors;
+            if (isDark) {
+                colors = ['#fff', '#ffccd5', '#cce5ff', '#e6ffcc', '#ffecce', '#ffcceb'];
+            } else {
+                colors = ['#333', '#d32f2f', '#1976d2', '#388e3c', '#f57c00', '#7b1fa2', '#c2185b', '#0288d1'];
+            }
+            danmu.style.color = colors[Math.floor(Math.random() * colors.length)];
+        });
+        
+        // 更新所有现有粒子的颜色
+        const isDark = html.classList.contains('dark');
+        let particleColors;
+        if (isDark) {
+            particleColors = ['#fff', '#ffccd5', '#cce5ff', '#e6ffcc', '#ffecce'];
+        } else {
+            particleColors = ['#333', '#d32f2f', '#1976d2', '#388e3c', '#f57c00', '#7b1fa2', '#c2185b', '#0288d1'];
+        }
+        particles.forEach(particle => {
+            particle.elem.style.backgroundColor = particleColors[Math.floor(Math.random() * particleColors.length)];
+        });
     });
 }
 
@@ -636,3 +830,307 @@ audioControl.addEventListener('mouseenter', () => {
 // 初始化隐藏
 audioControl.style.transform = 'translateY(100%)';
 audioControl.style.transition = 'transform 0.3s ease';
+
+// ==================== 服务器文件上传系统 ====================
+
+// 从服务器加载文件列表
+async function loadFilesFromServer() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/files`);
+        if (!response.ok) {
+            console.warn('无法连接到服务器，使用本地文件');
+            return;
+        }
+        
+        const data = await response.json();
+        
+        // 加载图片
+        if (data.images && Array.isArray(data.images)) {
+            data.images.forEach(img => {
+                if (!imageList.find(i => i.url === img.url)) {
+                    imageList.push({
+                        url: img.url,
+                        alt: img.message
+                    });
+                }
+            });
+        }
+        
+        // 加载视频
+        if (data.videos && Array.isArray(data.videos)) {
+            data.videos.forEach(video => {
+                if (!videoList.find(v => v.url === video.url)) {
+                    videoList.push({
+                        url: video.url,
+                        title: video.message,
+                        thumbnail: video.thumbnail || 'images/v_1.jpg'
+                    });
+                }
+            });
+        }
+        
+        // 加载音乐
+        if (data.music && Array.isArray(data.music)) {
+            data.music.forEach(music => {
+                if (!musicFiles.find(m => m.path === music.url)) {
+                    musicFiles.push({
+                        name: music.message || music.original_name,
+                        path: music.url
+                    });
+                }
+            });
+        }
+    } catch (error) {
+        console.warn('加载服务器文件失败，使用本地文件:', error);
+    }
+}
+
+// 初始化上传系统
+function initUploadSystem() {
+    const addVideoBtn = document.getElementById('addVideoBtn');
+    const addImageBtn = document.getElementById('addImageBtn');
+    const addMusicBtn = document.getElementById('addMusicBtn');
+    const uploadModal = document.getElementById('uploadModal');
+    const closeUploadModal = document.getElementById('closeUploadModal');
+    const fileInput = document.getElementById('fileInput');
+    const messageInput = document.getElementById('messageInput');
+    const messageGroup = document.getElementById('messageGroup');
+    const confirmUpload = document.getElementById('confirmUpload');
+    const uploadPreview = document.getElementById('uploadPreview');
+    const uploadModalTitle = document.getElementById('uploadModalTitle');
+    const uploadProgress = document.getElementById('uploadProgress');
+    const progressFill = document.getElementById('progressFill');
+    const progressText = document.getElementById('progressText');
+
+    // 检查必要的元素是否存在
+    if (!addVideoBtn || !addImageBtn || !addMusicBtn || !uploadModal || 
+        !closeUploadModal || !fileInput || !messageInput || !messageGroup || 
+        !confirmUpload || !uploadPreview || !uploadModalTitle) {
+        console.warn('上传功能所需的DOM元素未找到，跳过初始化');
+        return;
+    }
+
+    // 打开上传对话框
+    function openUploadModal(type) {
+        uploadType = type;
+        if (uploadModal) {
+            uploadModal.classList.add('active');
+        }
+        if (fileInput) {
+            fileInput.value = '';
+        }
+        if (messageInput) {
+            messageInput.value = '';
+        }
+        if (uploadPreview) {
+            uploadPreview.innerHTML = '';
+        }
+        if (uploadProgress) {
+            uploadProgress.style.display = 'none';
+        }
+        if (progressFill) {
+            progressFill.style.width = '0%';
+        }
+        if (progressText) {
+            progressText.textContent = '0%';
+        }
+        
+        // 设置文件类型和标题
+        if (type === 'video') {
+            if (fileInput) fileInput.accept = 'video/*';
+            if (uploadModalTitle) uploadModalTitle.textContent = '上传视频';
+            if (messageGroup) messageGroup.style.display = 'block';
+        } else if (type === 'image') {
+            if (fileInput) fileInput.accept = 'image/*';
+            if (uploadModalTitle) uploadModalTitle.textContent = '上传图片';
+            if (messageGroup) messageGroup.style.display = 'block';
+        } else if (type === 'music') {
+            if (fileInput) fileInput.accept = 'audio/*';
+            if (uploadModalTitle) uploadModalTitle.textContent = '上传音乐';
+            if (messageGroup) messageGroup.style.display = 'none';
+        }
+    }
+
+    // 关闭上传对话框
+    function closeModal() {
+        if (uploadModal) {
+            uploadModal.classList.remove('active');
+        }
+        if (fileInput) {
+            fileInput.value = '';
+        }
+        if (messageInput) {
+            messageInput.value = '';
+        }
+        if (uploadPreview) {
+            uploadPreview.innerHTML = '';
+        }
+        if (uploadProgress) {
+            uploadProgress.style.display = 'none';
+        }
+    }
+
+    // 事件监听（确保元素存在）
+    if (addVideoBtn) {
+        addVideoBtn.addEventListener('click', () => openUploadModal('video'));
+    }
+    if (addImageBtn) {
+        addImageBtn.addEventListener('click', () => openUploadModal('image'));
+    }
+    if (addMusicBtn) {
+        addMusicBtn.addEventListener('click', () => openUploadModal('music'));
+    }
+    if (closeUploadModal) {
+        closeUploadModal.addEventListener('click', closeModal);
+    }
+    if (uploadModal) {
+        uploadModal.addEventListener('click', (e) => {
+            if (e.target === uploadModal) {
+                closeModal();
+            }
+        });
+    }
+    
+    // 文件选择预览（确保元素存在）
+    if (fileInput) {
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            if (uploadPreview) {
+                uploadPreview.innerHTML = '';
+            }
+            const reader = new FileReader();
+
+            if (uploadType === 'image') {
+                reader.onload = (e) => {
+                    if (uploadPreview) {
+                        const img = document.createElement('img');
+                        img.src = e.target.result;
+                        uploadPreview.appendChild(img);
+                    }
+                };
+                reader.readAsDataURL(file);
+            } else if (uploadType === 'video') {
+                reader.onload = (e) => {
+                    if (uploadPreview) {
+                        const video = document.createElement('video');
+                        video.src = e.target.result;
+                        video.controls = true;
+                        uploadPreview.appendChild(video);
+                    }
+                };
+                reader.readAsDataURL(file);
+            } else if (uploadType === 'music' && uploadPreview) {
+                uploadPreview.innerHTML = `<p>🎵 ${file.name}</p>`;
+            }
+        });
+    }
+
+    // 确认上传（确保元素存在）
+    if (confirmUpload) {
+        confirmUpload.addEventListener('click', async () => {
+            if (!fileInput || !fileInput.files[0]) {
+                alert('请选择文件');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const message = messageInput ? messageInput.value.trim() : '';
+            
+            if ((uploadType === 'video' || uploadType === 'image') && !message) {
+                alert('请输入留言');
+                return;
+            }
+
+            try {
+                // 显示进度条
+                if (uploadProgress) {
+                    uploadProgress.style.display = 'block';
+                }
+                if (progressFill) {
+                    progressFill.style.width = '0%';
+                }
+                if (progressText) {
+                    progressText.textContent = '0%';
+                }
+                confirmUpload.disabled = true;
+                confirmUpload.textContent = '上传中...';
+
+                // 创建FormData
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('type', uploadType);
+                formData.append('message', message || file.name);
+
+                // 使用XMLHttpRequest以支持上传进度
+                const xhr = new XMLHttpRequest();
+                
+                xhr.upload.addEventListener('progress', (e) => {
+                    if (e.lengthComputable && progressFill && progressText) {
+                        const percentComplete = (e.loaded / e.total) * 100;
+                        progressFill.style.width = percentComplete + '%';
+                        progressText.textContent = Math.round(percentComplete) + '%';
+                    }
+                });
+
+                xhr.addEventListener('load', () => {
+                    if (xhr.status === 200) {
+                        const response = JSON.parse(xhr.responseText);
+                        if (response.success) {
+                            alert('上传成功！');
+                            closeModal();
+                            // 重新加载文件列表
+                            loadFilesFromServer().then(() => {
+                                renderMusicList();
+                                initImageGallery();
+                                initVideoGallery();
+                            });
+                        } else {
+                            alert('上传失败：' + (response.error || '未知错误'));
+                        }
+                    } else {
+                        try {
+                            const response = JSON.parse(xhr.responseText);
+                            alert('上传失败：' + (response.error || '服务器错误'));
+                        } catch (e) {
+                            alert('上传失败：服务器错误');
+                        }
+                    }
+                    if (confirmUpload) {
+                        confirmUpload.disabled = false;
+                        confirmUpload.textContent = '确认上传';
+                    }
+                    if (uploadProgress) {
+                        uploadProgress.style.display = 'none';
+                    }
+                });
+
+                xhr.addEventListener('error', () => {
+                    alert('上传失败：网络错误，请检查服务器是否运行');
+                    if (confirmUpload) {
+                        confirmUpload.disabled = false;
+                        confirmUpload.textContent = '确认上传';
+                    }
+                    if (uploadProgress) {
+                        uploadProgress.style.display = 'none';
+                    }
+                });
+
+                xhr.open('POST', `${API_BASE_URL}/upload`);
+                xhr.send(formData);
+
+            } catch (error) {
+                console.error('上传错误:', error);
+                alert('上传失败：' + error.message);
+                if (confirmUpload) {
+                    confirmUpload.disabled = false;
+                    confirmUpload.textContent = '确认上传';
+                }
+                if (uploadProgress) {
+                    uploadProgress.style.display = 'none';
+                }
+            }
+        });
+    }
+}
