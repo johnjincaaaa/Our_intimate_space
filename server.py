@@ -11,7 +11,7 @@ import os
 import uuid
 from datetime import datetime
 import json
-
+import traceback
 app = Flask(__name__)
 CORS(app)  # 允许跨域请求
 
@@ -56,43 +56,45 @@ def upload_file():
         file_type = request.form.get('type')  # 'image', 'video', 'music'
         if file_type not in ['image', 'video', 'music']:
             return jsonify({'error': '无效的文件类型'}), 400
-        
+
         # 检查文件是否存在
         if 'file' not in request.files:
             return jsonify({'error': '没有文件'}), 400
-        
+
         file = request.files['file']
         if file.filename == '':
             return jsonify({'error': '文件名为空'}), 400
-        
-        # 检查文件扩展名
-        if not allowed_file(file.filename, file_type + 's'):
+
+        # 检查文件扩展名 - 修复键名不一致问题
+        # 对于'music'类型，直接使用'music'作为键，而不是'musics'
+        if not allowed_file(file.filename, file_type if file_type == 'music' else file_type + 's'):
             return jsonify({'error': '不支持的文件格式'}), 400
-        
+
         # 检查文件大小
         file.seek(0, os.SEEK_END)
         file_size = file.tell()
         file.seek(0)
         if file_size > MAX_FILE_SIZE:
             return jsonify({'error': f'文件太大，最大允许{MAX_FILE_SIZE // 1024 // 1024}MB'}), 400
-        
+
         # 获取留言
         message = request.form.get('message', '').strip()
         if file_type in ['image', 'video'] and not message:
             return jsonify({'error': '请输入留言'}), 400
-        
+
         # 生成唯一文件名
         ext = file.filename.rsplit('.', 1)[1].lower()
         unique_filename = f"{uuid.uuid4().hex}.{ext}"
-        upload_folder = UPLOAD_FOLDER[file_type + 's']
-        
+        # 修复文件夹路径查找问题
+        upload_folder = UPLOAD_FOLDER[file_type if file_type == 'music' else file_type + 's']
+
         # 确保目录存在
         os.makedirs(upload_folder, exist_ok=True)
-        
+
         # 保存文件
         file_path = os.path.join(upload_folder, unique_filename)
         file.save(file_path)
-        
+
         # 保存文件信息
         data = load_data()
         file_info = {
@@ -105,9 +107,18 @@ def upload_file():
             'upload_time': datetime.now().isoformat(),
             'size': file_size
         }
-        data[file_type + 's'].append(file_info)
-        save_data(data)
+        # 确保使用正确的键名来访问data字典
+        if file_type == 'music':
+            # 音乐类型使用单数形式
+            data_key = 'music'
+        else:
+            # 其他类型使用复数形式
+            data_key = file_type + 's'
         
+        # 添加文件信息到正确的数据列表中
+        data[data_key].append(file_info)
+        save_data(data)
+
         return jsonify({
             'success': True,
             'message': '上传成功',
@@ -115,22 +126,23 @@ def upload_file():
         }), 200
 
     except Exception as e:
-        # 收集关键调试信息
-        error_info = {
-            'error': '上传失败',
-            'exception_type': type(e).__name__,  # 异常类型（如 FileNotFoundError、PermissionError）
-            'exception_msg': str(e),  # 异常原始信息
-            'request_method': request.method,  # 请求方法（POST/GET）
-            'request_url': request.url,  # 请求 URL
-            'client_ip': request.remote_addr,  # 客户端 IP
-            'uploaded_filename': request.files['file'].filename if 'file' in request.files else '无',  # 上传文件名（若有）
-            'uploaded_file_size': request.content_length if request.content_length else 0,  # 上传文件大小（字节）
-            'traceback': traceback.format_exc().split('\n')  # 详细堆栈信息（拆分分行，便于查看）
-        }
-        # 返回 JSON 格式的错误信息，HTTP 状态码 500
-        # return jsonify(error_info), 500
-
-        return jsonify({'error': f'上传失败: {str(e)}'},error_info), 500
+        # 简化错误处理，避免JSON序列化问题
+        # 打印详细错误信息到控制台以便调试
+        print(f"上传错误: {type(e).__name__} - {str(e)}")
+        print(traceback.format_exc())
+        
+        # 返回简单的错误响应给客户端
+        # 不要包含复杂的对象如traceback数组，只返回必要的错误信息
+        try:
+            filename = request.files['file'].filename if 'file' in request.files else '未知'
+        except:
+            filename = '未知'
+            
+        return jsonify({
+            'error': f'上传失败: {str(e)}',
+            'exception_type': type(e).__name__,
+            'uploaded_filename': filename
+        }), 500
 
 @app.route('/api/files', methods=['GET'])
 def get_files():
@@ -147,7 +159,7 @@ def get_files_by_type(file_type):
     try:
         if file_type not in ['images', 'videos', 'music']:
             return jsonify({'error': '无效的文件类型'}), 400
-        
+
         data = load_data()
         return jsonify(data.get(file_type, [])), 200
     except Exception as e:
@@ -189,13 +201,13 @@ if __name__ == '__main__':
     # 确保数据文件存在
     if not os.path.exists(DATA_FILE):
         save_data({'images': [], 'videos': [], 'music': []})
-    
+
     print('服务器启动中...')
-    print('访问 http://localhost:5001 查看网站')
+    print('访问 http://localhost:5000 查看网站')
     print('API接口:')
     print('  POST /api/upload - 上传文件')
     print('  GET  /api/files - 获取所有文件')
     print('  GET  /api/files/<type> - 获取指定类型文件')
-    
-    app.run(host='0.0.0.0', port=5001, debug=True)
+
+    app.run(host='0.0.0.0', port=5000, debug=True)
 

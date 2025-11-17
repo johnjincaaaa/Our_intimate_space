@@ -7,8 +7,8 @@ let danmuAnimationIds = [];
 let particleAnimationIds = [];
 let currentSlide = 0;
 let uploadType = ''; // 'video', 'image', 'music'
-// 服务器API地址 - 如果使用HTTPS，请确保API也使用HTTPS
-const API_BASE_URL =  'http://localhost:5001/api';
+// 服务器API地址 - 使用相对路径，这样会自动使用当前页面的域名
+const API_BASE_URL = '/api';
 
 // 数据定义
 const imageList = [
